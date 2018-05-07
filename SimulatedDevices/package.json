@@ -1,5 +1,5 @@
 {
-  "name": "sendcloudtodevicemessages",
+  "name": "simulateddevice",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,6 +9,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "azure-iothub": "^1.3.0"
+    "azure-iot-device": "^1.4.1",
+    "azure-iot-device-mqtt": "^1.4.1",
+    "azure-iothub": "^1.3.0",
+    "fetcha": "0.0.0"
   }
 }

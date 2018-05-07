@@ -1,13 +1,13 @@
 'use strict';
 
+const deviceId = 'Device1';
+const connectionString = 'HostName=SmartSwitch.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=8Wrt9USCDDOQg/r4pK/IpZH6iRibnNHpv0wZ+GkL22M=';
+
 var Client = require('azure-iothub').Client;
 var Message = require('azure-iot-common').Message;
-
-var connectionString = 'HostName=TestIoT6324.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=s5JVWGQOQRcK+WHLMyrJ5BvM3CMMcs7nRX8XmhkNaD8=';
-var targetDevice = 'TestIoT';
-var messageCount = 0;
-
 var serviceClient = Client.fromConnectionString(connectionString);
+
+
 
 function printResultFor(op) 
 {
@@ -23,7 +23,8 @@ function receiveFeedback(err, receiver)
     receiver.on('message', function (msg) 
     {
         console.log('Feedback message:')
-        console.log(msg.getData().toString('utf-8'));
+        console.log(msg.getData().toString('ascii'));
+        process.exit(0);
     });
 }
 
@@ -40,13 +41,9 @@ serviceClient.open(function (err)
 
         var data = JSON.stringify({ status: true });
         var message = new Message(data);
-
         message.ack = 'full';
-        message.messageId = `${messageCount}`;
 
         console.log('Sending message: ' + message.getData());
-        serviceClient.send(targetDevice, message, printResultFor('send'));
-
-        messageCount++;
+        serviceClient.send(deviceId, message, printResultFor('send'));
     }
 });

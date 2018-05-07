@@ -1,12 +1,34 @@
 'use strict';
 
+const fs = require('fs');
+
 /*
  * Stating the identity of the device this app is simulating 
  * and the connection string used to send messages to the IoT 
  * Hub on behalf of the device.
  */
-const deviceId = 'Device1';
-const connectionString = 'HostName=TestIoT6324.azure-devices.net;DeviceId=TestIoT;SharedAccessKey=QlTeXamZ/nApomv+f02ntuon4gwFQCkizJV6ctBJS+E=';
+
+if (process.argv.length <= 2)
+{
+    console.log('Usage: node SimulateDevice.js <device_name>');
+    process.exit(1);
+}
+
+const deviceId = process.argv[2];
+const deviceDir = `${__dirname}\\${deviceId}`;
+if (!fs.existsSync(deviceDir)){
+    console.log(`Folder with connection information for ${deviceId} doesn't exist`);
+    process.exit(1);
+}
+
+const deviceInfo = `${deviceDir}\\${deviceId}.json`;
+if (!fs.existsSync(deviceInfo)){
+    console.log(`File with connection information for ${deviceId} doesn't exist in ${deviceDir}`);
+    process.exit(1);
+}
+
+var device = require(deviceInfo);
+const connectionString = device.connectionString;
 
 /*
  * Creating the client object which acts as the simulated 
@@ -20,14 +42,14 @@ const client = clientFromConnectionString(connectionString);
  * data simulated by the app.
  */
 const Message = require('azure-iot-device').Message;
-const messageInterval = 60; 	// Delay between each message
+const messageInterval = 60; 				// Delay between each message
 
 /*
  * Initializing global variables tracking the state of
  * the device.
  */
-const usageRating = 1;			// The typical electricity usage rating of the device
-var deviceState = false;		// The current on/off state of the device
+const usageRating = device.usageRating;		// The typical electricity usage rating of the device
+var deviceState = true;					// The current on/off state of the device
 
 /*
  * Callback function for logging errors to the console when
@@ -45,7 +67,7 @@ function printResultFor(op)
  * Callback function for receiving a message sent to the device
  * and updating the device state based on the message.
  */
-var receiveMessageFromCloud = function (msg)
+function receiveMessageFromCloud(msg)
 {
 	console.log("Received message: " + msg.data);
 	var data = JSON.parse(msg.data);
@@ -57,19 +79,21 @@ var receiveMessageFromCloud = function (msg)
  * Callback function for sending a data packet from the device
  * to the IoT Hub in JSON string form.
  */
-var sendMessageToCloud = function(data)
+function sendMessageToCloud(data)
 {
 	var dataString = JSON.stringify(data);
+	var message = new Message(dataString);
 	console.log("Sending message: " + dataString);
 	client.sendEvent(message, printResultFor('send'));
 }
+
 
 /*
  * Callback function for the message loop service that determines
  * the usage of the past minute and sends it with the time and
  * device status to the IoT Hub.
  */
-var messageLoop = function()
+function messageLoop()
 {
 	var timeNow = new Date();
 	var year = timeNow.getFullYear();
@@ -78,7 +102,7 @@ var messageLoop = function()
 	var hour = timeNow.getHours();
 	var minute = timeNow.getMinutes();
 	var status = deviceState;
-	var usage = status ? usageRating * (0.7 + 0.6*Math.random()) : Math.random();
+	var usage = status ? messageInterval * usageRating * (0.9 + 0.2*Math.random()) : Math.random();
 
 	var data = 
 	{
@@ -89,7 +113,7 @@ var messageLoop = function()
 		minute: minute,
 		deviceId: deviceId,
 		status: status,
-		usage: usage,
+		usage: usage.toFixed(2),
 	}
 
 	sendMessageToCloud(data);
@@ -98,7 +122,7 @@ var messageLoop = function()
 /*
  * Callback function for starting up the simulated data message loop.
  */
-var connectCallback = function (err) 
+function connectCallback(err) 
 {
     if (err) 
     {
