@@ -1,12 +1,30 @@
 'use strict';
 
 /*
- * Stating the identity of the device this app is simulating 
- * and the connection string used to send messages to the IoT 
- * Hub on behalf of the device.
+ * Checking that the user has specified the device name to simulate
  */
-const deviceId = 'Device1';
-const connectionString = 'HostName=TestIoT6324.azure-devices.net;DeviceId=TestIoT;SharedAccessKey=QlTeXamZ/nApomv+f02ntuon4gwFQCkizJV6ctBJS+E=';
+if (process.argv.length <= 2)
+{
+	console.log('Usage: node SimulateDevice.js <device_name>');
+	process.exit(1);
+}
+
+/*
+ * Getting the identity of the device this app is simulating 
+ * from the command line arguments and the connection string 
+ * used to send messages to the IoT Hub on behalf of the device.
+ */
+const finder = require('./DeviceConfigFinder')
+const deviceId = process.argv[2];
+const deviceConfig = finder.getdeviceConfig(deviceId);
+const connectionString = deviceConfig.connectionString;
+
+/*
+ * Initializing global variables tracking the state of
+ * the device.
+ */
+const usageRating = deviceConfig.usageRating;	// The typical electricity usage rating of the device in W/s
+var deviceState = true;							// The current on/off state of the device
 
 /*
  * Creating the client object which acts as the simulated 
@@ -20,14 +38,7 @@ const client = clientFromConnectionString(connectionString);
  * data simulated by the app.
  */
 const Message = require('azure-iot-device').Message;
-const messageInterval = 60; 	// Delay between each message
-
-/*
- * Initializing global variables tracking the state of
- * the device.
- */
-const usageRating = 1;			// The typical electricity usage rating of the device
-var deviceState = false;		// The current on/off state of the device
+const messageInterval = 60; 					// Delay between each message
 
 /*
  * Callback function for logging errors to the console when
@@ -45,11 +56,14 @@ function printResultFor(op)
  * Callback function for receiving a message sent to the device
  * and updating the device state based on the message.
  */
-var receiveMessageFromCloud = function (msg)
+function receiveMessageFromCloud(msg)
 {
 	console.log("Received message: " + msg.data);
 	var data = JSON.parse(msg.data);
-	deviceState = data.status;
+	if(data.status === true || data.status === false)
+	{
+		deviceState = data.status;
+	}
 	client.complete(msg, printResultFor('completed'));
 }
 
@@ -57,9 +71,10 @@ var receiveMessageFromCloud = function (msg)
  * Callback function for sending a data packet from the device
  * to the IoT Hub in JSON string form.
  */
-var sendMessageToCloud = function(data)
+function sendMessageToCloud(data)
 {
 	var dataString = JSON.stringify(data);
+	var message = new Message(dataString);
 	console.log("Sending message: " + dataString);
 	client.sendEvent(message, printResultFor('send'));
 }
@@ -69,7 +84,7 @@ var sendMessageToCloud = function(data)
  * the usage of the past minute and sends it with the time and
  * device status to the IoT Hub.
  */
-var messageLoop = function()
+function messageLoop()
 {
 	var timeNow = new Date();
 	var year = timeNow.getFullYear();
@@ -77,8 +92,10 @@ var messageLoop = function()
 	var day = timeNow.getDate();
 	var hour = timeNow.getHours();
 	var minute = timeNow.getMinutes();
-	var status = deviceState;
-	var usage = status ? usageRating * (0.7 + 0.6*Math.random()) : Math.random();
+	var status = deviceState ? "On" : "Off";
+	var usage = deviceState 
+		? messageInterval*usageRating*(0.9 + 0.2*Math.random()) // If the device is on, run at usageRate with 10% variance
+		: Math.random(); // Otherwise just simulate the IoT device requiring power
 
 	var data = 
 	{
@@ -89,7 +106,7 @@ var messageLoop = function()
 		minute: minute,
 		deviceId: deviceId,
 		status: status,
-		usage: usage,
+		usage: usage.toFixed(2),
 	}
 
 	sendMessageToCloud(data);
@@ -98,7 +115,7 @@ var messageLoop = function()
 /*
  * Callback function for starting up the simulated data message loop.
  */
-var connectCallback = function (err) 
+function connectCallback(err) 
 {
     if (err) 
     {
@@ -108,7 +125,7 @@ var connectCallback = function (err)
     {
         console.log('Client connected');
         client.on('message', receiveMessageFromCloud);
-        setInterval(messageLoop, 5000);
+        setInterval(messageLoop, messageInterval*1000);
     }
 };
 

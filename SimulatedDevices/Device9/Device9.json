@@ -1,0 +1,7 @@
+{
+    "hostname": "SmartSwitch.azure-devices.net",
+    "deviceId": "Device9",
+    "deviceKey": "2KGglqNWt9og96p6Zz2fMjPuHjSqtKE2vpGXXYHhGlc=",
+    "connectionString": "HostName=SmartSwitch.azure-devices.net;DeviceId=Device9;SharedAccessKey=2KGglqNWt9og96p6Zz2fMjPuHjSqtKE2vpGXXYHhGlc=",
+    "usageRating": "1"
+}
