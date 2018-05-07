@@ -1,1 +1,7 @@
-{"hostname":"SmartSwitch.azure-devices.net","deviceId":"Device1","deviceKey":"hjf7U+GCixYo5zvMT7Mz1jHi2ODlgDBSKvXuF4Zq1vU=","connectionString":"HostName=SmartSwitch.azure-devices.net;DeviceId=Device1;SharedAccessKey=hjf7U+GCixYo5zvMT7Mz1jHi2ODlgDBSKvXuF4Zq1vU=","usageRating":"5"}
+{
+    "hostname": "SmartSwitch.azure-devices.net",
+    "deviceId": "Device1",
+    "deviceKey": "Q7O2PIDv/MqvWsZvJhIawai7A0XhYZ+QO3VFsZot6GQ=",
+    "connectionString": "HostName=SmartSwitch.azure-devices.net;DeviceId=Device1;SharedAccessKey=Q7O2PIDv/MqvWsZvJhIawai7A0XhYZ+QO3VFsZot6GQ=",
+    "usageRating": "1"
+}

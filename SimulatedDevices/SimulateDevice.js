@@ -1,34 +1,30 @@
 'use strict';
 
-const fs = require('fs');
-
 /*
- * Stating the identity of the device this app is simulating 
- * and the connection string used to send messages to the IoT 
- * Hub on behalf of the device.
+ * Checking that the user has specified the device name to simulate
  */
-
 if (process.argv.length <= 2)
 {
-    console.log('Usage: node SimulateDevice.js <device_name>');
-    process.exit(1);
+	console.log('Usage: node SimulateDevice.js <device_name>');
+	process.exit(1);
 }
 
+/*
+ * Getting the identity of the device this app is simulating 
+ * from the command line arguments and the connection string 
+ * used to send messages to the IoT Hub on behalf of the device.
+ */
+const finder = require('./DeviceConfigFinder')
 const deviceId = process.argv[2];
-const deviceDir = `${__dirname}\\${deviceId}`;
-if (!fs.existsSync(deviceDir)){
-    console.log(`Folder with connection information for ${deviceId} doesn't exist`);
-    process.exit(1);
-}
+const deviceConfig = finder.getdeviceConfig(deviceId);
+const connectionString = deviceConfig.connectionString;
 
-const deviceInfo = `${deviceDir}\\${deviceId}.json`;
-if (!fs.existsSync(deviceInfo)){
-    console.log(`File with connection information for ${deviceId} doesn't exist in ${deviceDir}`);
-    process.exit(1);
-}
-
-var device = require(deviceInfo);
-const connectionString = device.connectionString;
+/*
+ * Initializing global variables tracking the state of
+ * the device.
+ */
+const usageRating = deviceConfig.usageRating;	// The typical electricity usage rating of the device in W/s
+var deviceState = true;							// The current on/off state of the device
 
 /*
  * Creating the client object which acts as the simulated 
@@ -42,14 +38,7 @@ const client = clientFromConnectionString(connectionString);
  * data simulated by the app.
  */
 const Message = require('azure-iot-device').Message;
-const messageInterval = 60; 				// Delay between each message
-
-/*
- * Initializing global variables tracking the state of
- * the device.
- */
-const usageRating = device.usageRating;		// The typical electricity usage rating of the device
-var deviceState = true;					// The current on/off state of the device
+const messageInterval = 60; 					// Delay between each message
 
 /*
  * Callback function for logging errors to the console when
@@ -71,7 +60,10 @@ function receiveMessageFromCloud(msg)
 {
 	console.log("Received message: " + msg.data);
 	var data = JSON.parse(msg.data);
-	deviceState = data.status;
+	if(data.status === true || data.status === false)
+	{
+		deviceState = data.status;
+	}
 	client.complete(msg, printResultFor('completed'));
 }
 
@@ -87,7 +79,6 @@ function sendMessageToCloud(data)
 	client.sendEvent(message, printResultFor('send'));
 }
 
-
 /*
  * Callback function for the message loop service that determines
  * the usage of the past minute and sends it with the time and
@@ -101,8 +92,10 @@ function messageLoop()
 	var day = timeNow.getDate();
 	var hour = timeNow.getHours();
 	var minute = timeNow.getMinutes();
-	var status = deviceState;
-	var usage = status ? messageInterval * usageRating * (0.9 + 0.2*Math.random()) : Math.random();
+	var status = deviceState ? "On" : "Off";
+	var usage = deviceState 
+		? messageInterval*usageRating*(0.9 + 0.2*Math.random()) // If the device is on, run at usageRate with 10% variance
+		: Math.random(); // Otherwise just simulate the IoT device requiring power
 
 	var data = 
 	{

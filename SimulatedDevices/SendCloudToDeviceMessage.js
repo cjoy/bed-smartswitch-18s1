@@ -1,14 +1,39 @@
 'use strict';
 
-const deviceId = 'Device1';
-const connectionString = 'HostName=SmartSwitch.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=8Wrt9USCDDOQg/r4pK/IpZH6iRibnNHpv0wZ+GkL22M=';
+/*
+ * Checking that the user has specified the device name to send
+ * the message to as well as the 'true' or 'false' 'on'-state to
+ * set the device to.
+ */
+if (process.argv.length <= 3)
+{
+	console.log('Usage: node SendCloudToDeviceMessage.js <device_name> <json_message>');
+	process.exit(1);
+}
+const deviceId = process.argv[2];
+const newState = process.argv[3];
 
-var Client = require('azure-iothub').Client;
-var Message = require('azure-iot-common').Message;
-var serviceClient = Client.fromConnectionString(connectionString);
+/*
+ * Retrieving the iot hub connection string defined in the iot config
+ * file in the CreateDeviceIdentity folder.
+ */
+const hubConfig = require(`${__dirname}\\..\\CreateDeviceIdentity\\IoTHubConfig`)
+const hostname = hubConfig.hostname;
+const sharedkey = hubConfig.sharedkey;
+const sharedkeyname = hubConfig.sharedkeyname;
+const connectionString = `HostName=${hostname};SharedAccessKeyName=${sharedkeyname};SharedAccessKey=${sharedkey}`;
 
+/*
+ * Importing the client and message modules which acts as the simulated 
+ * to connect and send the message.
+ */
+const Client = require('azure-iothub').Client;
+const Message = require('azure-iot-common').Message;
+const serviceClient = Client.fromConnectionString(connectionString);
 
-
+/*
+ * Print the resulting status of the send action.
+ */
 function printResultFor(op) 
 {
     return function printResult(err, res) 
@@ -18,16 +43,25 @@ function printResultFor(op)
     };
 }
 
+/*
+ * Wait for the feedback of sending the message and print it
+ * when it comes through showing the success state of sending
+ * the message to the device.
+ */
 function receiveFeedback(err, receiver)
 {
-    receiver.on('message', function (msg) 
+    receiver.on('message', function (message) 
     {
         console.log('Feedback message:')
-        console.log(msg.getData().toString('ascii'));
+        console.log(message.getData().toString('ascii'));
         process.exit(0);
     });
 }
 
+/*
+ * Initiates the sending process by opening the connection,
+ * determining the new state and then sending the message.
+ */
 serviceClient.open(function (err) 
 {
     if (err) 
@@ -39,11 +73,15 @@ serviceClient.open(function (err)
         console.log('Service client connected');
         serviceClient.getFeedbackReceiver(receiveFeedback);
 
-        var data = JSON.stringify({ status: true });
-        var message = new Message(data);
-        message.ack = 'full';
-
-        console.log('Sending message: ' + message.getData());
-        serviceClient.send(deviceId, message, printResultFor('send'));
+        if (newState === "true" || newState === "false")
+        {
+            var boolVal = newState === "true" ? true : false;
+            var data = JSON.stringify({ status: boolVal });
+            var message = new Message(data);
+            message.ack = 'full';
+    
+            console.log('Sending message: ' + message.getData());
+            serviceClient.send(deviceId, message, printResultFor('send'));
+        }
     }
 });
