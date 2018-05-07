@@ -125,7 +125,7 @@ function connectCallback(err)
     {
         console.log('Client connected');
         client.on('message', receiveMessageFromCloud);
-        setInterval(messageLoop, 5000);
+        setInterval(messageLoop, messageInterval*1000);
     }
 };
 
