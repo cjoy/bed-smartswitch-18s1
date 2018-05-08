@@ -25,6 +25,7 @@ const connectionString = deviceConfig.connectionString;
  */
 const usageRating = deviceConfig.usageRating;	// The typical electricity usage rating of the device in W/s
 var deviceState = true;							// The current on/off state of the device
+var intervalUsage = 0;							// The cumulative usage for the interval between messages
 
 /*
  * Creating the client object which acts as the simulated 
@@ -39,6 +40,7 @@ const client = clientFromConnectionString(connectionString);
  */
 const Message = require('azure-iot-device').Message;
 const messageInterval = 60; 					// Delay between each message
+var secondCount = 0;							// The number of seconds between each interval
 
 /*
  * Callback function for logging errors to the console when
@@ -94,22 +96,30 @@ function messageLoop()
 	var minute = timeNow.getMinutes();
 	var status = deviceState ? "On" : "Off";
 	var usage = deviceState 
-		? messageInterval*usageRating*(0.9 + 0.2*Math.random()) // If the device is on, run at usageRate with 10% variance
-		: Math.random(); // Otherwise just simulate the IoT device requiring power
+		? usageRating*(0.9 + 0.2*Math.random()) // If the device is on, run at usageRate with 10% variance
+		: Math.random()/messageInterval; // Otherwise just simulate the IoT device requiring power
 
-	var data = 
+	intervalUsage += usage;
+	secondCount++;
+
+	if (secondCount === messageInterval)
 	{
-		year: year,
-		month: month,
-		day: day,
-		hour: hour,
-		minute: minute,
-		deviceId: deviceId,
-		status: status,
-		usage: usage.toFixed(2),
+		var data = 
+		{
+			year: year,
+			month: month,
+			day: day,
+			hour: hour,
+			minute: minute,
+			deviceId: deviceId,
+			status: status,
+			usage: intervalUsage.toFixed(2),
+		}
+	
+		sendMessageToCloud(data);
+		intervalUsage = 0;
+		secondCount = 0;
 	}
-
-	sendMessageToCloud(data);
 }
 
 /*
@@ -125,7 +135,7 @@ function connectCallback(err)
     {
         console.log('Client connected');
         client.on('message', receiveMessageFromCloud);
-        setInterval(messageLoop, messageInterval*1000);
+        setInterval(messageLoop, 1000);
     }
 };
 
