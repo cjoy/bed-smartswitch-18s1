@@ -2,6 +2,7 @@ const express = require('express');
 const sql = require('mssql');
 const Client = require('azure-iothub').Client;
 const Message = require('azure-iot-common').Message;
+var bodyParser = require('body-parser');
 
 const dbConfig = {
     user: 'comp6324admin',
@@ -24,7 +25,14 @@ const serviceClient = Client.fromConnectionString(iotHubConnectionString);
 
 const app = express();
 app.use(express.json());
+app.use(bodyParser.json());
+app.use(function(req, res, next) {
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	next();
+});
 
+  
 
 /**
  * HELPER FUNCTIONS
@@ -106,7 +114,7 @@ app.post('/:deviceid', (req, res) => {
             serviceClient.getFeedbackReceiver(receiveFeedback);
             let message = new Message(JSON.stringify(req.body));
             message.ack = 'full';
-            console.log('Sending message: ' + message.getData());
+            console.log('Sending message: ', req.body);
             serviceClient.send(req.params.deviceid, message, printResultFor('send'));
             res.send({ message: req.body, status: 'OK'});
         }
