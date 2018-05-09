@@ -1,12 +1,12 @@
 {
 	"Device1": "1",
-	"Device2": "1",
+	"Device2": "1-f",
 	"Device3": "5",
 	"Device4": "100",
-	"Device5": "20",
-	"Device6": "2",
+	"Device5": "20-f",
+	"Device6": "2-f",
 	"Device7": "5",
-	"Device8": "50",
-	"Device9": "1",
+	"Device8": "50-f",
+	"Device9": "1-f",
 	"Device10": "5"
 }
