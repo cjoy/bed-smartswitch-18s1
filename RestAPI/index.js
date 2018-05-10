@@ -71,11 +71,12 @@ function printResultFor(op)
 /** GET /
  * Get list of devices
  */
-app.get('/', (req, res) => {
+app.get('/api/', (req, res) => {
     sql.connect(dbConfig).then(pool => {
         return pool.request()
             .query('select * from devices');
     }).then(result => {
+        console.log(result.recordset);
         res.send(result.recordset);
         sql.close();
     }).catch(err => {
@@ -87,7 +88,7 @@ app.get('/', (req, res) => {
 /** GET /:deviceid  (eg. GET /Device1)
  * Get a single device's states 
  */
-app.get('/:deviceid', (req, res) => {
+app.get('/api/:deviceid', (req, res) => {
     sql.connect(dbConfig).then(pool => {
         return pool.request()
             .input('deviceId', sql.VarChar, req.params.deviceid)
@@ -104,7 +105,7 @@ app.get('/:deviceid', (req, res) => {
 /** POST /:deviceid
  * Send a device message to the iot hub
  */
-app.post('/:deviceid', (req, res) => {
+app.post('/api/:deviceid', (req, res) => {
     serviceClient.open((err) => {
         if (err) {
             res.send(`Could not connect: ${err.message}`);
@@ -121,4 +122,5 @@ app.post('/:deviceid', (req, res) => {
     });
 });
 
-app.listen(3000, () => console.log('Smartswitch REST API listening on port 3000!'));
+const port = process.env.PORT || 5000;
+app.listen(port, () => console.log(`Smartswitch REST API listening on port ${port}!`));
