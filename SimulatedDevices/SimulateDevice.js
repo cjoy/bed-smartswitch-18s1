@@ -92,6 +92,7 @@ function messageLoop()
 	var day = timeNow.getDate();
 	var hour = timeNow.getHours();
 	var minute = timeNow.getMinutes();
+	var second = timeNow.getSeconds();
 	var status = deviceState ? "On" : "Off";
 	var usage = deviceState 
 		? messageInterval*usageRating*(0.9 + 0.2*Math.random()) // If the device is on, run at usageRate with 10% variance
@@ -104,6 +105,7 @@ function messageLoop()
 		day: day,
 		hour: hour,
 		minute: minute,
+		seconds: second,
 		deviceId: deviceId,
 		status: status,
 		usage: usage.toFixed(2),
