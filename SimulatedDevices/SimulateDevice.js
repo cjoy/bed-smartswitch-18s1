@@ -97,7 +97,7 @@ function messageLoop()
 	var status = deviceState ? "On" : "Off";
 	var usage = deviceState 
 		? usageRating*(0.9 + 0.2*Math.random()) // If the device is on, run at usageRate with 10% variance
-		: Math.random(); // Otherwise just simulate the IoT device requiring power
+		: Math.random()/intervalUsage; // Otherwise just simulate the IoT device requiring power
 
 	intervalUsage += usage;
 	secondCount += 1;
