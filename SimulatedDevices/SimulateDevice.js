@@ -39,6 +39,8 @@ const client = clientFromConnectionString(connectionString);
  */
 const Message = require('azure-iot-device').Message;
 const messageInterval = 60; 					// Delay between each message
+var intervalUsage = 0;
+var secondCount = 0;
 
 /*
  * Callback function for logging errors to the console when
@@ -92,26 +94,32 @@ function messageLoop()
 	var day = timeNow.getDate();
 	var hour = timeNow.getHours();
 	var minute = timeNow.getMinutes();
-	var second = timeNow.getSeconds();
 	var status = deviceState ? "On" : "Off";
 	var usage = deviceState 
-		? messageInterval*usageRating*(0.9 + 0.2*Math.random()) // If the device is on, run at usageRate with 10% variance
+		? usageRating*(0.9 + 0.2*Math.random()) // If the device is on, run at usageRate with 10% variance
 		: Math.random(); // Otherwise just simulate the IoT device requiring power
 
-	var data = 
+	intervalUsage += usage;
+	secondCount += 1;
+	if (secondCount === messageInterval)
 	{
-		year: year,
-		month: month,
-		day: day,
-		hour: hour,
-		minute: minute,
-		seconds: second,
-		deviceId: deviceId,
-		status: status,
-		usage: usage.toFixed(2),
-	}
+		var data = 
+		{
+			year: year,
+			month: month,
+			day: day,
+			hour: hour,
+			minute: minute,
+			deviceId: deviceId,
+			status: status,
+			usage: intervalUsage.toFixed(2),
+		}
+	
+		sendMessageToCloud(data);
 
-	sendMessageToCloud(data);
+		intervalUsage = 0;
+		secondCount = 0;
+	}
 }
 
 /*
@@ -127,7 +135,7 @@ function connectCallback(err)
     {
         console.log('Client connected');
         client.on('message', receiveMessageFromCloud);
-        setInterval(messageLoop, messageInterval*1000);
+        setInterval(messageLoop, 1000);
     }
 };
 
