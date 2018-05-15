@@ -1,0 +1,2 @@
+cd bed-smartswitch-18s1/SimulatedDevices
+node SimulateDevice.js Device1

@@ -64,6 +64,10 @@ function receiveMessageFromCloud(msg)
 	var data = JSON.parse(msg.data);
 	if(data.status === true || data.status === false)
 	{
+		if (deviceState != data.status)
+		{
+			sendMessageToCloud({ deviceId: deviceId, status: data.status }, true);
+		}
 		deviceState = data.status;
 	}
 	client.complete(msg, printResultFor('completed'));
@@ -73,10 +77,11 @@ function receiveMessageFromCloud(msg)
  * Callback function for sending a data packet from the device
  * to the IoT Hub in JSON string form.
  */
-function sendMessageToCloud(data)
+function sendMessageToCloud(data, switched=false)
 {
 	var dataString = JSON.stringify(data);
 	var message = new Message(dataString);
+	message.properties.add("switched", switched ? "true" : "false");
 	console.log("Sending message: " + dataString);
 	client.sendEvent(message, printResultFor('send'));
 }
