@@ -2,16 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 /*
- * Retrieving the iot hub connection string defined in the iot config
- * file in the CreateDeviceIdentity folder.
- */
-const hubConfig = require(`${__dirname}\\..\\CreateDeviceIdentity\\IoTHubConfig`)
-const hostname = hubConfig.hostname;
-const sharedkey = hubConfig.sharedkey;
-const sharedkeyname = hubConfig.sharedkeyname;
-const connectionString = `HostName=${hostname};SharedAccessKeyName=${sharedkeyname};SharedAccessKey=${sharedkey}`;
-
-/*
  * Using the Node.js SDK for Azure Event hubs: https://github.com/Azure/azure-event-hubs-node
  * The sample connects to an IoT hub's Event Hubs-compatible endpoint
  * to read messages sent from a device.
@@ -43,7 +33,7 @@ var checkSwitchUpdate = function (message)
  * Connect to the partitions on the IoT Hub's Event Hubs-compatible endpoint.
  * This example only reads messages sent after this application started.
  */
-function monitorCloud(callback)
+function monitorCloud(callback, connectionString)
 {
 	console.log("Starting IoT Hub status update monitor ...")
 	var client = EventHubClient.fromConnectionString(connectionString);

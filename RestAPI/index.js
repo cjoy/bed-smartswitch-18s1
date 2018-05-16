@@ -40,6 +40,10 @@ app.use(function(req, res, next) {
   next();
 });
 
+const port = process.env.PORT || 3000; // update this so that the front end can connect locally.
+var server = app.listen(port, () =>
+  console.log(`Smartswitch REST API listening on port ${port}!`)
+);
 
 /*
  * Checks the message for the special application property where the switch
@@ -56,8 +60,8 @@ var checkSwitchUpdate = function (message)
 		console.log("Device " + deviceId + " switched to " + newStatus);
 	}
 };
+cloudMon.monitorCloud(checkSwitchUpdate, iotHubConnectionString)
 
-cloudMon.monitorCloud(checkSwitchUpdate)
 
 /**
  * HELPER FUNCTIONS
@@ -274,8 +278,3 @@ app.post("/api/v1/:deviceid", (req, res) => {
     }
   });
 });
-
-const port = process.env.PORT || 3000; // update this so that the front end can connect locally.
-app.listen(port, () =>
-  console.log(`Smartswitch REST API listening on port ${port}!`)
-);
