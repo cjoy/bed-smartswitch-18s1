@@ -93,6 +93,7 @@ app.get("/api/", (req, res) => {
 app.post('/api/v3/sign-in', (req, res) => {
     res.send({
         status: true,
+        userID: 1,
         error: null
     })
 })
