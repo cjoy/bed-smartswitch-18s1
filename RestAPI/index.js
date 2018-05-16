@@ -56,11 +56,13 @@ var checkSwitchUpdate = function (message)
 	if (data && properties && properties === "true")
 	{
 		deviceId = data.deviceId;
-		newStatus = data.status;
+		newStatus = data.status ? "On" : "Off";
 		console.log("Device " + deviceId + " switched to " + newStatus);
+		var query = "update room_devices set status='" + newStatus + "' where deviceId='" + deviceId + "'";
 	}
 };
 cloudMon.monitorCloud(checkSwitchUpdate, iotHubConnectionString)
+
 
 
 /**

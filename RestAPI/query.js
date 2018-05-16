@@ -17,19 +17,28 @@ var rl = readline.createInterface({
   terminal: false
 });
 
-if (process.argv.length > 2)
+if (process.argv.length > 3)
 {
-  console.log(process.argv[2]);
-  querySQL(process.argv[2]);
+  	console.log(process.argv[2]);
+ 	deviceId = process.argv[2];
+	newStatus = process.argv[3];
+	console.log("Device " + deviceId + " switched to " + newStatus);
+	var query = "update room_devices set status='Off' where deviceId='Device7'";
+	updateSQL(dbConfig, query);
 }
 
-rl.on('line', function(line){
-  if (line === "q")
-  {
-    process.exit(0);
-  }
-  querySQL(line);
-})
+function updateSQL(dbConfig, query)
+{
+	sql.connect(dbConfig, function (err) {
+        if (err) console.log(err);
+        var request = new sql.Request();
+		request.query(query, function (err, recordset) 
+		{
+            if (err) console.log(err)
+            console.log(recordset);
+        });
+    });
+}
 
 function querySQL(query)
 {
@@ -45,5 +54,13 @@ function querySQL(query)
     .catch(err => {
       console.log("Error occurred")
       sql.close();
-    });
+	});
 }
+
+/*
+ * Exports the function as a module to be used by other js files.
+ */
+module.exports = {
+	updateSQL: updateSQL,
+	querySQL: querySQL
+};
