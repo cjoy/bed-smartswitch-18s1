@@ -43,19 +43,29 @@ var checkSwitchUpdate = function (message)
  * Connect to the partitions on the IoT Hub's Event Hubs-compatible endpoint.
  * This example only reads messages sent after this application started.
  */
-console.log("Starting IoT Hub status update monitor ...")
-var client = EventHubClient.fromConnectionString(connectionString);
-client.open()
-    .then(client.getPartitionIds.bind(client))
-	.then(function (partitionIds) 
-	{
-		return partitionIds.map(function (partitionId) 
+function monitorCloud(callback)
+{
+	console.log("Starting IoT Hub status update monitor ...")
+	var client = EventHubClient.fromConnectionString(connectionString);
+	client.open()
+		.then(client.getPartitionIds.bind(client))
+		.then(function (partitionIds) 
 		{
-			return client.createReceiver('$Default', partitionId, { 'startAfterTime' : Date.now()}).then(function(receiver)
+			return partitionIds.map(function (partitionId) 
 			{
-                receiver.on('errorReceived', printError);
-                receiver.on('message', checkSwitchUpdate);
-            });
-        });
-    })
-    .catch(printError);
+				return client.createReceiver('$Default', partitionId, { 'startAfterTime' : Date.now()}).then(function(receiver)
+				{
+					receiver.on('errorReceived', printError);
+					receiver.on('message', callback);
+				});
+			});
+		})
+		.catch(printError);
+}
+
+/*
+ * Exports the function as a module to be used by other js files.
+ */
+module.exports = {
+	monitorCloud: monitorCloud
+};
