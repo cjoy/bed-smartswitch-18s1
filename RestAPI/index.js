@@ -84,22 +84,24 @@ app.get("/api/", (req, res) => {
       sql.close();
     })
     .catch(err => {
-      res.send("Unable to retreive devices");
+      res.send(err);
+      //   res.send("Unable to retreive devices");
+      console.log(err);
       sql.close();
     });
 });
 
 // fake auth endpoint
-app.post('/api/v3/sign-in', (req, res) => {
-    res.send({
-        status: true,
-        userID: 1,
-        error: null
-    })
-})
+app.post("/api/v3/sign-in", (req, res) => {
+  res.send({
+    status: true,
+    userID: 1,
+    error: null
+  });
+});
 
 /**
- * write docs info here for what the function returns.
+ * TODO:update this to also include the status.
  */
 app.get("/api/v3/devices", (req, res) => {
   sql
@@ -107,8 +109,30 @@ app.get("/api/v3/devices", (req, res) => {
     .then(pool => {
       return pool
         .request()
+        .query(
+          "select b.deviceId, sum(cast(b.usage as float)) as total_usage, max(b.last_update) as last_updated from user_devices a JOIN sensor_data b on a.deviceId= b.deviceId where b.last_update = (select max(last_update) from sensor_data) and a.username = 'test' group by b.deviceId"
+        );
+    })
+    .then(result => {
+      console.log(result.recordset);
+      res.send(result.recordset);
+      sql.close();
+    })
+    .catch(err => {
+      //   res.send("Unable to retreive devices");
+      res.send(err);
+      sql.close();
+    });
+});
+
+app.get("/api/v3/rooms", (req, res) => {
+  sql
+    .connect(dbConfig)
+    .then(pool => {
+      return pool
+        .request()
         .input("userID", sql.VarChar, req.params.user_id)
-        .query("select * from devices where user_id = @userID");
+        .query("select * from rooms where user_id = @userID");
     })
     .then(result => {
       console.log(result.recordset);
@@ -120,26 +144,6 @@ app.get("/api/v3/devices", (req, res) => {
       sql.close();
     });
 });
-
-app.get("/api/v3/rooms", (req, res) => {
-    sql
-      .connect(dbConfig)
-      .then(pool => {
-        return pool
-          .request()
-          .input("userID", sql.VarChar, req.params.user_id)
-          .query("select * from rooms where user_id = @userID");
-      })
-      .then(result => {
-        console.log(result.recordset);
-        res.send(result.recordset);
-        sql.close();
-      })
-      .catch(err => {
-        res.send("Unable to retreive devices");
-        sql.close();
-      });
-  });
 
 app.get("/api/v2/devices", (req, res) => {
   sql
