@@ -89,16 +89,67 @@ app.get("/api/", (req, res) => {
     });
 });
 
+// fake auth endpoint
+app.post('/api/v3/sign-in', (req, res) => {
+    res.send({
+        status: true,
+        error: null
+    })
+})
+
+/**
+ * write docs info here for what the function returns.
+ */
+app.get("/api/v3/devices", (req, res) => {
+  sql
+    .connect(dbConfig)
+    .then(pool => {
+      return pool
+        .request()
+        .input("userID", sql.VarChar, req.params.user_id)
+        .query("select * from devices where user_id = @userID");
+    })
+    .then(result => {
+      console.log(result.recordset);
+      res.send(result.recordset);
+      sql.close();
+    })
+    .catch(err => {
+      res.send("Unable to retreive devices");
+      sql.close();
+    });
+});
+
+app.get("/api/v3/rooms", (req, res) => {
+    sql
+      .connect(dbConfig)
+      .then(pool => {
+        return pool
+          .request()
+          .input("userID", sql.VarChar, req.params.user_id)
+          .query("select * from rooms where user_id = @userID");
+      })
+      .then(result => {
+        console.log(result.recordset);
+        res.send(result.recordset);
+        sql.close();
+      })
+      .catch(err => {
+        res.send("Unable to retreive devices");
+        sql.close();
+      });
+  });
+
 app.get("/api/v2/devices", (req, res) => {
   sql
     .connect(dbConfig)
     .then(pool => {
       return pool
         .request()
-        // .query(
-        //   `select deviceId, status from devices order by  group by d.deviceId`
-        // );
-        .query(`select DISTINCT a.deviceId, b.status, b.last_update from user_devices a JOIN sensor_data b on a.deviceId= b.deviceId where b.last_update = (select max(last_update) from sensor_data) and a.username = 'test' and b.deviceid = 'Device1';`)
+        .query(
+          `select distinct deviceid, usage, last_update, status from user_devices where last_update > dateadd(day, -90, getdate())`
+        );
+      // .query(`select DISTINCT a.deviceId, b.status, b.last_update from user_devices a JOIN sensor_data b on a.deviceId= b.deviceId where b.last_update = (select max(last_update) from sensor_data) and a.username = 'test' and b.deviceid = 'Device1';`)
     })
     .then(result => {
       res.send(result.recordset);
