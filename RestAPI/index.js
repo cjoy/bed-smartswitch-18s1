@@ -3,7 +3,6 @@ const sql = require("mssql");
 const Client = require("azure-iothub").Client;
 const Message = require("azure-iot-common").Message;
 var bodyParser = require("body-parser");
-//var socket = require("socket.io");
 var cloudMon = require("../SimulatedDevices/ReadDeviceToCloudMessages")
 
 const dbConfig = {
@@ -47,17 +46,6 @@ var server = app.listen(port, () =>
 );
 
 /*
-var io = socket(server);
-io.on("connection", function(socket)
-{
-  console.log("New socket");
-  socket.on("disconnect", () => {
-	console.log("Socket disconnected");
-  });
-});
-*/
-
-/*
  * Checks the message for the special application property where the switch
  * status was just updated in the device.
  */
@@ -70,7 +58,6 @@ var checkSwitchUpdate = function (message)
 		deviceId = data.deviceId;
 		newStatus = data.status;
 		console.log("Device " + deviceId + " switched to " + newStatus);
-		io.emit("update", { deviceId: deviceId, status: newStatus });
 	}
 };
 cloudMon.monitorCloud(checkSwitchUpdate, iotHubConnectionString)
