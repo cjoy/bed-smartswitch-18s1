@@ -1,11 +1,12 @@
-const express = require("express");
-const sleep = require('sleep');
 const sql = require("mssql");
+const express = require("express");
 const Client = require("azure-iothub").Client;
 const Message = require("azure-iot-common").Message;
 const bodyParser = require("body-parser");
 const cloudMon = require("../SimulatedDevices/ReadDeviceToCloudMessages");
 const azure = require("./AzureConfig");
+
+//#region DATABASE SETUP
 
 const dbConfig = azure.dbConfig;
 const sqlConnPool = new sql.ConnectionPool(dbConfig);
@@ -19,8 +20,9 @@ const dbTables =
     sensor_data: "sensor_data"
 }
 
-const iotHubConnectionString = azure.IoTHubConnectionString;
-const serviceClient = Client.fromConnectionString(iotHubConnectionString);
+//#endregion
+
+//#region SERVER SETUP
 
 const app = express();
 app.use(express.json());
@@ -35,7 +37,12 @@ app.use(function(req, res, next)
 const port = process.env.PORT || 5000; // update this so that the front end can connect locally.
 const server = app.listen(port, () => console.log(`Smartswitch REST API listening on port ${port}!`));
 
+//#endregion
+
 //#region =================================   AZURE CLOUD COMMUNICATION   =================================== //
+
+const iotHubConnectionString = azure.IoTHubConnectionString;
+const serviceClient = Client.fromConnectionString(iotHubConnectionString);
 
 // =============================================   GET LIVE SWITCH UPDATE   ============================================== //
 
@@ -121,11 +128,12 @@ app.post("/api/v1/user/sign-in", (req, res) =>
                 res.status(500).send({ status: false, userId: -1, username: "None", error: err });
                 return;
             }
-            console.log(result.recordset)
             const status = result.recordset.length !== 0 ? true : false;
             const userId = status ? result.recordset[0].customerId : -1;
             const username = status ? result.recordset[0].username : "None";
             res.status(200).send({ status, userId, username, error: null });
+            const login = status ? JSON.stringify(result.recordset[0]) : `Unknown: ${req.body.username}, ${req.body.password}`;
+            console.log(`New login: ${login}`);
         });
 });
 
@@ -403,8 +411,10 @@ app.post("/api/v1/register/device/", (req, res) =>
                     res.status(500).send(err);
                     return;
                 }
-                console.log("Register: " + result)
-                res.status(200).send({ message: "Success" });
+                const status = result.rowsAffected > 0;
+                const response = status ? "Success" : "Failed";
+                console.log(`Register ${response}: ${req.body.deviceId}`)
+                res.status(200).send({ message: response });
             });
 });
 
