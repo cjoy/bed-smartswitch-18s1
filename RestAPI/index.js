@@ -134,7 +134,7 @@ app.get("/api/v3/devices", (req, res) =>
             return pool
                 .request()
                 .input("userID", sql.VarChar, req.params.user_id)
-                .query("SELECT * FROM devices WHERE user_id = @userID");
+                .query("SELECT * FROM user_devices WHERE user_id = @userID");
         })
         .then(result => 
         {
