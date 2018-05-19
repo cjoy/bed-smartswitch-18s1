@@ -17,7 +17,7 @@ var printError = function (err)
  * Checks the message for the special application property where the switch
  * status was just updated in the device.
  */
-var checkSwitchUpdate = function (message)
+var checkSwitchUpdate = function (message, callback)
 {
 	var data = message.body;
 	var properties = message.applicationProperties.switched;
@@ -33,7 +33,7 @@ var checkSwitchUpdate = function (message)
  * Connect to the partitions on the IoT Hub's Event Hubs-compatible endpoint.
  * This example only reads messages sent after this application started.
  */
-function monitorCloud(callback, connectionString)
+function monitorCloud(connectionString, callback)
 {
 	console.log("Starting IoT Hub status update monitor ...")
 	var client = EventHubClient.fromConnectionString(connectionString);

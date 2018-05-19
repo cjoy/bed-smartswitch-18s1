@@ -16,6 +16,7 @@ var usageRating = process.argv[3];
  * file in the CreateDeviceIdentity folder.
  */
 const hubConfig = require(`../RestAPI/AzureConfig`);
+const hostname = hubConfig.IoTHubConfig.hostname;
 const connectionString = hubConfig.IoTHubConnectionString;
 
 /*
