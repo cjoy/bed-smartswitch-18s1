@@ -141,6 +141,167 @@ app.post("/api/v1/user/sign-in", (req, res) =>
 
 //#region  =====================================  DASHBOARD : GET SENSOR DATA   ====================================== //
 
+// =====================================   GET SENSOR DATA FOR LAST x DAYS   ====================================== //
+
+/** 
+ * GET /:month/:day/:deviceId
+ * Gets usage data for a particular device for the given day ordered by hour and minute
+ */
+app.get("/api/v2/devices/data/day/:numDays/:customerId", (req, res) => 
+{
+    var timeThen = new Date();
+    timeThen.setDate(timeThen.getDate() - req.params.numDays);
+    var yearThen = timeThen.getFullYear();
+	var monthThen = timeThen.getMonth() + 1;
+    var dayThen = timeThen.getDate();
+    var timestampThen = getHourTimestamp(yearThen, monthThen, dayThen, 0);
+    
+    var request = new sql.Request(sqlConnPool);
+    request
+        .input("customerId", sql.VarChar, req.params.customerId)
+        .input("timestamp", sql.Int, timestampThen)
+        .query(`
+            SELECT deviceId
+                , cast(year as int) year
+                , cast(month as int) month
+                , cast(day as int) day
+                , cast(hour as int) hour
+                , cast(minute as int) minute
+                , cast(usage as float) usage
+            FROM sensor_data
+            WHERE year*1000000 + month*10000 + day*100 >= @timestamp
+                AND deviceId IN 
+                (
+                    SELECT deviceId FROM registered_devices_copy WHERE productId IN (SELECT productId FROM products WHERE customerId=@customerId)
+                )
+            ORDER BY year DESC, month DESC, day DESC, hour DESC, minute DESC
+        `, 
+        function(err, result) 
+        {
+            if (err) 
+            {
+                console.error(err);
+                res.status(500).send(err.message);
+                return;
+            }
+            const deviceUsageArray = {};
+            const labels = []
+            labels.length = parseInt(req.params.numDays)+1;
+            for (var i=0; i<=req.params.numDays; i++) 
+            {
+                var currTime = new Date(yearThen, monthThen, dayThen);
+                currTime.setDate(timeThen.getDate() + i);
+                var year = currTime.getFullYear();
+                var month = currTime.getMonth() + 1;
+                var day = currTime.getDate();
+                var timestamp = getHourTimestamp(year, month, day, 0);
+                labels[i] = timestamp;
+            }
+            result.recordset.forEach((record) =>
+            {
+                if(!deviceUsageArray[record.deviceId])
+                {
+                    deviceUsageArray[record.deviceId] = {};
+                    deviceUsageArray[record.deviceId]["labels"] = labels;
+                    deviceUsageArray[record.deviceId]["dataset"] = [];
+                    deviceUsageArray[record.deviceId]["dataset"].length = parseInt(req.params.numDays)+1;
+                    for (var i=0; i<=req.params.numDays; i++) 
+                    {
+                        deviceUsageArray[record.deviceId]["dataset"][i] = 0;
+                    }
+                }
+                var currTime = new Date(parseInt(record.year),parseInt(record.month)-1,parseInt(record.day));
+                var daysDiff = Math.trunc(Math.abs(currTime - timeThen) / (24*60*60*1000));
+                deviceUsageArray[record.deviceId]["dataset"][daysDiff] += parseFloat(record.usage);
+            });
+            res.status(200).json(deviceUsageArray);
+        });
+});
+
+// =====================================   GET SENSOR DATA FOR LAST x HOURS   ====================================== //
+
+/** 
+ * GET /:month/:day/:deviceId
+ * Gets usage data for a particular device for the given day ordered by hour and minute
+ */
+app.get("/api/v2/devices/data/hour/:numHours/:customerId", (req, res) => 
+{
+    var timeThen = new Date();
+    timeThen.setHours(timeThen.getHours() - parseInt(req.params.numHours));  
+    var yearThen = timeThen.getFullYear();
+	var monthThen = timeThen.getMonth() + 1;
+    var dayThen = timeThen.getDate();
+    var hourThen = timeThen.getHours();
+    var timestampThen = getHourTimestamp(yearThen, monthThen, dayThen, hourThen);
+
+    var request = new sql.Request(sqlConnPool);
+    request
+        .input("customerId", sql.VarChar, req.params.customerId)
+        .input("timestamp", sql.Int, timestampThen)
+        .query(`
+            SELECT deviceId
+                , cast(year as int) year
+                , cast(month as int) month
+                , cast(day as int) day
+                , cast(hour as int) hour
+                , cast(minute as int) minute
+                , cast(usage as float) usage
+            FROM sensor_data
+            WHERE year*1000000 + month*10000 + day*100 + hour >= @timestamp
+                AND deviceId IN 
+                (
+                    SELECT deviceId FROM registered_devices_copy WHERE productId IN (SELECT productId FROM products WHERE customerId=@customerId)
+                )
+            ORDER BY year DESC, month DESC, day DESC, hour DESC, minute DESC
+        `, 
+        function(err, result) 
+        {
+            if (err) 
+            {
+                console.error(err);
+                res.status(500).send(err.message);
+                return;
+            }
+            const deviceUsageArray = {};
+            const labels = []
+            labels.length = parseInt(req.params.numHours)+1;
+            for (var i=0; i<=req.params.numHours; i++) 
+            {
+                var currTime = new Date(yearThen, monthThen, dayThen, hourThen);
+                currTime.setHours(timeThen.getHours() + i);
+                var year = currTime.getFullYear();
+                var month = currTime.getMonth() + 1;
+                var day = currTime.getDate();
+                var hour = currTime.getHours();
+                var timestamp = getHourTimestamp(year, month, day, hour);
+                labels[i] = timestamp;
+            }
+            result.recordset.forEach((record) =>
+            {
+                if(!deviceUsageArray[record.deviceId])
+                {
+                    deviceUsageArray[record.deviceId] = {};
+                    deviceUsageArray[record.deviceId]["labels"] = labels;
+                    deviceUsageArray[record.deviceId]["dataset"] = [];
+                    deviceUsageArray[record.deviceId]["dataset"].length = parseInt(req.params.numHours)+1;
+                    for (var i=0; i<=req.params.numHours; i++) 
+                    {
+                        deviceUsageArray[record.deviceId]["dataset"][i] = 0;
+                    }
+                }
+                var currTime = new Date(parseInt(record.year),parseInt(record.month)-1,parseInt(record.day),parseInt(record.hour));
+                var hoursDiff = Math.trunc(Math.abs(currTime - timeThen) / (60*60*1000));
+                deviceUsageArray[record.deviceId]["dataset"][hoursDiff] += parseFloat(record.usage);
+            });
+            res.status(200).json(deviceUsageArray);
+        });
+});
+
+function getHourTimestamp(year, month, day, hour)
+{
+    return parseInt(year)*1000000 + parseInt(month)*10000 + parseInt(day)*100 + parseInt(hour);
+}
+
 // =====================================   GET SENSOR DATA FOR GIVEN DAY   ====================================== //
 
 /** 
