@@ -10,6 +10,14 @@ const azure = require("./AzureConfig");
 const dbConfig = azure.dbConfig;
 const sqlConnPool = new sql.ConnectionPool(dbConfig);
 sqlConnPool.connect().then(() => {console.log("Database connected");});
+const dbTables = 
+{
+    registered_devices: "registered_devices_copy",
+    products: "products",
+    users: "users_copy",
+    devices: "devices",
+    sensor_data: "sensor_data"
+}
 
 const iotHubConnectionString = azure.IoTHubConnectionString;
 const serviceClient = Client.fromConnectionString(iotHubConnectionString);
@@ -189,14 +197,134 @@ app.get("/api/v2/devices/data/month/:month", (req, res) =>
 
 //#endregion
 
-//#region  ======================================  DEVICES : GET BUILDING DEVICE INFO   ================================ //
+//#region  ======================================  DEVICES : GET DEVICE INFO   ================================ //
+
+// ==========================================  DEVICES : GET BUILDING DEVICE INFO   ================================ //
 
 /** 
  * GET /
  * Searches for the tuple (deviceid,productid,roomid,devicetype,devicename,status) from the database and 
  * categorises the devices according to product.
  */
-app.get("/api/v3/buildings/devices/:customerId", (req, res) => 
+app.get("/api/v3/buildings/ids/:customerId", (req, res) => 
+{
+    var request = new sql.Request(sqlConnPool);
+    request
+        .input("customerId", sql.VarChar, req.body.customerId)
+        .query("SELECT productId, customer_address FROM products WHERE customerId=@customerId", function(err, result)
+        {
+            if (err) 
+            {
+                console.error(err);
+                res.status(500).send(err.message);
+                return;
+            }
+            res.status(200).send(result.recordset);
+        });
+});
+
+function parseProductData(recordset)
+{
+    const records = {};
+    recordset.forEach((record) =>
+    {
+        if (!records[record.productId]) 
+        {
+            records[record.productId] = []
+        }
+        records[record.productId].push(record)
+    });
+    const products = {};
+    var i = 1;
+    const productData = [];
+    Object.keys(records).forEach((product) =>
+    {
+        const roomData = parseRoomData(records[product]);
+        productData.push(
+        {
+            productID: i,
+            rooms: roomData
+        })
+        i += 1;
+    });
+    return productData;
+}
+
+// ==============================================  DEVICES : GET ROOM DEVICE INFO   ================================ //
+
+/** 
+ * GET /
+ * Searches for the tuple (deviceid,roomid,devicetype,devicename,status) from the database and 
+ * categorises the devices according to room.
+ */
+app.get("/api/v3/room/devices/:customerId", (req, res) => 
+{
+    var request = new sql.Request(sqlConnPool);
+    request
+        .input("customerId", sql.VarChar, req.params.customerId)
+        .query(`
+            SELECT * FROM registered_devices_copy 
+            WHERE productId IN (SELECT productId FROM products WHERE customerId=@customerId)
+        `,
+        function(err, result)
+        {
+            if (err) 
+            {
+                console.error(err);
+                res.status(500).send(err.message);
+                return;
+            }
+            const roomData = parseRoomData(result.recordset);
+            res.status(200).send(roomData);
+        });
+});
+
+function parseRoomData(recordset)
+{
+    const rooms = {};
+    recordset.forEach((device) => 
+    {
+        if (!rooms[device.roomid]) 
+        {
+            rooms[device.roomid] = []
+        }
+        rooms[device.roomid].push(
+        {
+            id: device.deviceId,
+            type: device.device_type,
+            name: device.device_name,
+            status: device.status === 'Off' ? false : true,
+        });
+    });
+    var i = 1;
+    const roomData = [];
+    Object.keys(rooms).forEach(room => 
+    {
+        data = 
+        {
+            roomID: i,
+            name: room,
+            devices: rooms[room],
+        };
+        i += 1
+        roomData.push(data);
+    })
+    return roomData;
+}
+
+//#endregion
+
+//#region  ======================================  REGISTER : REGISTER/UNREGISTER DEVICES   ======================= //
+
+
+// ================================  REGISTER : GET CUSTOMER ADDRESS AND PRODUCT ID   ================================ //
+
+/** 
+ * GET /
+ * Searches for the tuple (deviceid,productid,roomid,devicetype,devicename,status) from the database and 
+ * categorises the devices according to product.
+ */
+app.get("/api/v3/register/products/:customerId", (req, res) => 
 {
     var request = new sql.Request(sqlConnPool);
     request
@@ -213,120 +341,10 @@ app.get("/api/v3/buildings/devices/:customerId", (req, res) =>
                 res.status(500).send(err.message);
                 return;
             }
-            const records = {};
-            result.recordset.forEach((record) =>
-            {
-                if (!records[record.productId]) 
-                {
-                    records[record.productId] = []
-                }
-                records[record.productId].push(record)
-            });
-            const products = {};
-            var i = 1;
-            const productData = [];
-            Object.keys(records).forEach((product) =>
-            {
-                const rooms = {};
-                records[product].forEach((device) => 
-                {
-                    if (!rooms[device.roomid]) 
-                    {
-                        rooms[device.roomid] = []
-                    }
-                    rooms[device.roomid].push(
-                    {
-                        id: device.deviceId,
-                        type: device.device_type,
-                        name: device.device_name,
-                        status: device.status === 'Off' ? false : true,
-                    });
-                });
-                var j = 1;
-                const roomData = [];
-                Object.keys(rooms).forEach(room => 
-                {
-                    data = 
-                    {
-                        roomID: j,
-                        name: room,
-                        devices: rooms[room],
-                    };
-                    j += 1;
-                    roomData.push(data);
-                })
-                productData.push(
-                {
-                    productID: i,
-                    rooms: roomData
-                })
-                i += 1;
-            });
-            console.log(JSON.stringify(productData));
+            const productData = parseProductData(result.recordset);
             res.status(200).send(productData);
         });
 });
-
-//#region  ======================================  DEVICES : GET ROOM DEVICE INFO   ================================ //
-
-/** 
- * GET /
- * Searches for the tuple (deviceid,roomid,devicetype,devicename,status) from the database and 
- * categorises the devices according to room.
- */
-app.get("/api/v3/room/devices/:username", (req, res) => 
-{
-    console.log(req.params);
-    var request = new sql.Request(sqlConnPool);
-    request
-        .input("customerId", sql.VarChar, req.params.username)
-        .query(`
-            SELECT * FROM registered_devices_copy 
-            WHERE productId IN (SELECT productId FROM products WHERE customerId=@customerId)
-        `,
-        function(err, result)
-        {
-            if (err) 
-            {
-                console.error(err);
-                res.status(500).send(err.message);
-                return;
-            }
-            const rooms = {};
-            result.recordset.forEach((device) => 
-            {
-                if (!rooms[device.roomid]) 
-                {
-                    rooms[device.roomid] = []
-                }
-                rooms[device.roomid].push(
-                {
-                    id: device.deviceId,
-                    type: device.device_type,
-                    name: device.device_name,
-                    status: device.status === 'Off' ? false : true,
-                });
-            });
-            var i = 1;
-            const roomData = [];
-            Object.keys(rooms).forEach(room => 
-            {
-                data = 
-                {
-                    roomID: i,
-                    name: room,
-                    devices: rooms[room],
-                };
-                i += 1
-                roomData.push(data);
-            })
-            res.status(200).send(roomData);
-        });
-});
-
-//#endregion
-
-//#region  ======================================  REGISTER : REGISTER/UNREGISTER DEVICES   ======================= //
 
 // =============================================   REGISTER DEVICE   ============================================== //
 
@@ -342,19 +360,21 @@ app.post("/api/v1/register/device/", (req, res) =>
         res.send({ message: "Please specify all device details", status: "ERROR" });
         return;
     }
+    console.log(req.body);
     var request = new sql.Request(sqlConnPool);
     request
-        .input("username", sql.VarChar, req.body.username)
+        .input("customerId", sql.VarChar, req.body.customerId)
+        .input("productId", sql.VarChar, req.body.productId)
         .input("deviceId", sql.VarChar, req.body.deviceId)
         .input("deviceType", sql.VarChar, req.body.deviceType)
         .input("deviceName", sql.VarChar, req.body.deviceName)
         .input("roomName", sql.VarChar, req.body.roomName)
         .query(`
-            IF EXISTS(SELECT * FROM registered_devices WHERE deviceId=@deviceId)
+            IF EXISTS(SELECT * FROM registered_devices_copy WHERE deviceId=@deviceId)
             BEGIN
-                IF EXISTS(SELECT * FROM registered_devices WHERE deviceId=@deviceId AND username=@username)
+                IF EXISTS(SELECT * FROM registered_devices_copy WHERE productId IN (SELECT productId FROM products WHERE customerId=@customerId))
                 BEGIN
-                    UPDATE registered_devices
+                    UPDATE registered_devices_copy
                         SET device_type=@deviceType, device_name=@deviceName, roomid=@roomName
                         WHERE deviceId=@deviceId
                 END
@@ -363,15 +383,15 @@ app.post("/api/v1/register/device/", (req, res) =>
             BEGIN
                 IF EXISTS(SELECT * FROM devices WHERE deviceId=@deviceId)
                 BEGIN
-                    IF EXISTS (SELECT status FROM sensor_data WHERE last_update = (SELECT max(last_update) FROM sensor_data WHERE deviceId=@deviceId) AND deviceId=@deviceId)
+                    IF EXISTS (SELECT status FROM sensor_data WHERE deviceId=@deviceId AND last_update = (SELECT max(last_update) FROM sensor_data WHERE deviceId=@deviceId) )
                     BEGIN 
-                        INSERT INTO registered_devices (deviceId, username, roomid, device_type, device_name, status) 
-                        VALUES (@deviceId, @username, @roomName, @deviceType, @deviceName, (SELECT status FROM sensor_data WHERE last_update = (SELECT max(last_update) FROM sensor_data WHERE deviceId=@deviceId) AND deviceId=@deviceId))
+                        INSERT INTO registered_devices_copy (deviceId, productId, roomid, device_type, device_name, status) 
+                        VALUES (@deviceId, @productId, @roomName, @deviceType, @deviceName, (SELECT status FROM sensor_data WHERE deviceId=@deviceId AND last_update = (SELECT max(last_update) FROM sensor_data WHERE deviceId=@deviceId) ))
                     END
                     ELSE
                     BEGIN
-                        INSERT INTO registered_devices (deviceId, username, roomid, device_type, device_name, status) 
-                        VALUES ('Device11', @username, @roomName, @deviceType, @deviceName, 'Off')
+                        INSERT INTO registered_devices_copy (deviceId, productId, roomid, device_type, device_name, status) 
+                        VALUES (@deviceId, @productId, @roomName, @deviceType, @deviceName, 'Off')
                     END
                 END
             END`, 
