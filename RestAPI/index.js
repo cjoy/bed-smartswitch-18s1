@@ -375,12 +375,16 @@ app.get("/api/v2/devices/data/month/:month", (req, res) =>
  * Searches for the tuple (deviceid,productid,roomid,devicetype,devicename,status) from the database and 
  * categorises the devices according to product.
  */
-app.get("/api/v3/buildings/ids/:customerId", (req, res) => 
+app.get("/api/v3/buildings/devices/:customerId", (req, res) => 
 {
     var request = new sql.Request(sqlConnPool);
     request
         .input("customerId", sql.VarChar, req.body.customerId)
-        .query("SELECT productId, customer_address FROM products WHERE customerId=@customerId", function(err, result)
+        .query(`
+            SELECT * FROM registered_devices_copy 
+            WHERE productId IN (SELECT productId FROM products WHERE customerId=@customerId)
+        `,
+        function(err, result)
         {
             if (err) 
             {
@@ -388,7 +392,8 @@ app.get("/api/v3/buildings/ids/:customerId", (req, res) =>
                 res.status(500).send(err.message);
                 return;
             }
-            res.status(200).send(result.recordset);
+            const productData = parseProductData(result.recordset);
+            res.status(200).send(productData);
         });
 });
 
@@ -493,16 +498,12 @@ function parseRoomData(recordset)
  * Searches for the tuple (deviceid,productid,roomid,devicetype,devicename,status) from the database and 
  * categorises the devices according to product.
  */
-app.get("/api/v3/register/products/:customerId", (req, res) => 
+app.get("/api/v3/register/productaddress/:customerId", (req, res) => 
 {
     var request = new sql.Request(sqlConnPool);
     request
         .input("customerId", sql.VarChar, req.body.customerId)
-        .query(`
-            SELECT * FROM registered_devices_copy 
-            WHERE productId IN (SELECT productId FROM products WHERE customerId=@customerId)
-        `,
-        function(err, result)
+        .query("SELECT productId, customer_address FROM products WHERE customerId=@customerId", function(err, result)
         {
             if (err) 
             {
@@ -510,8 +511,7 @@ app.get("/api/v3/register/products/:customerId", (req, res) =>
                 res.status(500).send(err.message);
                 return;
             }
-            const productData = parseProductData(result.recordset);
-            res.status(200).send(productData);
+            res.status(200).send(result.recordset);
         });
 });
 
