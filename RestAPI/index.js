@@ -189,7 +189,7 @@ app.get("/api/v2/devices/data/day/:numDays/:customerId", (req, res) =>
             labels.length = parseInt(req.params.numDays)+1;
             for (var i=0; i<=req.params.numDays; i++) 
             {
-                var currTime = new Date(yearThen, monthThen, dayThen);
+                var currTime = new Date(yearThen, monthThen-1, dayThen);
                 currTime.setDate(timeThen.getDate() + i);
                 var year = currTime.getFullYear();
                 var month = currTime.getMonth() + 1;
