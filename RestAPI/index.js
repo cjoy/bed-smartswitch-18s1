@@ -321,38 +321,6 @@ function getUTCTimestamp(str)
     return date.toUTCString();
 }
 
-// =====================================   GET SENSOR DATA FOR GIVEN DAY   ====================================== //
-
-/** 
- * GET /:month/:day/:deviceId
- * Gets usage data for a particular device for the given day ordered by hour and minute
- */
-app.get("/api/v2/devices/data/day/:month/:day/:deviceId", (req, res) => 
-{
-    var request = new sql.Request(sqlConnPool);
-    request
-        .request()
-        .input("day", sql.VarChar, req.params.day)
-        .input("month", sql.VarChar, req.params.month)
-        .input("deviceId", sql.VarChar, req.params.deviceId)
-        .query(`
-            SELECT deviceId, hour, cast(minute as float) minute, (cast(usage as float)) usage 
-            FROM sensor_data 
-            WHERE deviceId=@deviceId and month=@month and day=@day
-            ORDER BY hour, minute
-        `, 
-        function(err, result) 
-        {
-            if (err) 
-            {
-                console.error(err);
-                res.status(500).send(err.message);
-                return;
-            }
-            res.status(200).json(result.recordset);
-        });
-});
-
 // =====================================   GET SENSOR DATA FOR GIVEN MONTH   ====================================== //
 
 /** 
