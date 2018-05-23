@@ -1,4 +1,5 @@
 const sql = require("mssql");
+const sleep = require("sleep");
 const express = require("express");
 const Client = require("azure-iothub").Client;
 const Message = require("azure-iot-common").Message;
@@ -11,7 +12,7 @@ const azure = require("./AzureConfig");
 const dbConfig = azure.dbConfig;
 const sqlConnPool = new sql.ConnectionPool(dbConfig);
 sqlConnPool.connect().then(() => {console.log("Database connected");});
-const dbTables = 
+const dbTables = // Not referenced in this file, for info only
 {
     registered_devices: "registered_devices_copy",
     products: "products",
@@ -149,6 +150,8 @@ app.post("/api/v1/user/sign-in", (req, res) =>
  */
 app.get("/api/v2/devices/data/day/:numDays/:customerId", (req, res) => 
 {
+    sleep.sleep(2);
+    console.log(req.params);
     var timeThen = new Date();
     timeThen.setDate(timeThen.getDate() - req.params.numDays);
     var yearThen = timeThen.getFullYear();
@@ -214,6 +217,9 @@ app.get("/api/v2/devices/data/day/:numDays/:customerId", (req, res) =>
                 var daysDiff = Math.trunc(Math.abs(currTime - timeThen) / (24*60*60*1000));
                 deviceUsageArray[record.deviceId]["dataset"][daysDiff] += parseFloat(record.usage);
             });
+            Object.keys(deviceUsageArray).map(deviceId => {
+                deviceUsageArray[deviceId]["labels"] = deviceUsageArray[deviceId]["labels"].map(l => getUTCTimestamp(l));
+            })
             res.status(200).json(deviceUsageArray);
         });
 });
@@ -226,6 +232,7 @@ app.get("/api/v2/devices/data/day/:numDays/:customerId", (req, res) =>
  */
 app.get("/api/v2/devices/data/hour/:numHours/:customerId", (req, res) => 
 {
+    console.log(req.params);
     var timeThen = new Date();
     timeThen.setHours(timeThen.getHours() - parseInt(req.params.numHours));  
     var yearThen = timeThen.getFullYear();
@@ -267,14 +274,15 @@ app.get("/api/v2/devices/data/hour/:numHours/:customerId", (req, res) =>
             labels.length = parseInt(req.params.numHours)+1;
             for (var i=0; i<=req.params.numHours; i++) 
             {
-                var currTime = new Date(yearThen, monthThen, dayThen, hourThen);
+                var currTime = new Date(yearThen, monthThen-1, dayThen, hourThen);
                 currTime.setHours(timeThen.getHours() + i);
                 var year = currTime.getFullYear();
                 var month = currTime.getMonth() + 1;
                 var day = currTime.getDate();
                 var hour = currTime.getHours();
                 var timestamp = getHourTimestamp(year, month, day, hour);
-                labels[i] = timestamp;
+                //labels[i] = timestamp;
+                labels[i] = currTime.toUTCString()
             }
             result.recordset.forEach((record) =>
             {
@@ -293,6 +301,10 @@ app.get("/api/v2/devices/data/hour/:numHours/:customerId", (req, res) =>
                 var hoursDiff = Math.trunc(Math.abs(currTime - timeThen) / (60*60*1000));
                 deviceUsageArray[record.deviceId]["dataset"][hoursDiff] += parseFloat(record.usage);
             });
+            //Object.keys(deviceUsageArray).map(deviceId => {
+            //   deviceUsageArray[deviceId]["labels"] = deviceUsageArray[deviceId]["labels"].map(l => getUTCTimestamp(l));
+            //}) 
+            //console.log(deviceUsageArray)     
             res.status(200).json(deviceUsageArray);
         });
 });
@@ -300,6 +312,13 @@ app.get("/api/v2/devices/data/hour/:numHours/:customerId", (req, res) =>
 function getHourTimestamp(year, month, day, hour)
 {
     return parseInt(year)*1000000 + parseInt(month)*10000 + parseInt(day)*100 + parseInt(hour);
+}
+
+function getUTCTimestamp(str)
+{
+    str = str.toString();
+    const date = new Date(Date.UTC(str.slice(0,4), str.slice(4,6)-1, str.slice(6,8), str.slice(8,10), 0, 0))
+    return date.toUTCString();
 }
 
 // =====================================   GET SENSOR DATA FOR GIVEN DAY   ====================================== //
@@ -341,14 +360,18 @@ app.get("/api/v2/devices/data/day/:month/:day/:deviceId", (req, res) =>
  * GET /:month
  * Gets cumulative usage data for all devices for the given month ordered by grouped by deviceId
  */
-app.get("/api/v2/devices/data/month/:month", (req, res) => 
+app.get("/api/v2/devices/data/month/:customerId", (req, res) => 
 {
+    const month = new Date().getMonth() + 1;
     var request = new sql.Request(sqlConnPool);
     request
-        .input("month", sql.VarChar, req.params.month)
+        .input("month", sql.VarChar, month)
+        .input("customerId", sql.VarChar, req.params.customerId)
         .query(`
             SELECT deviceId, sum(cast(usage as float)) usage 
             FROM sensor_data WHERE month = @month 
+            AND deviceId IN (SELECT deviceId FROM registered_devices_copy
+            WHERE productId IN (SELECT productId FROM products WHERE customerId = @customerId))
             GROUP BY deviceId 
             ORDER BY deviceId
         `, 
@@ -379,7 +402,7 @@ app.get("/api/v3/buildings/devices/:customerId", (req, res) =>
 {
     var request = new sql.Request(sqlConnPool);
     request
-        .input("customerId", sql.VarChar, req.body.customerId)
+        .input("customerId", sql.VarChar, req.params.customerId)
         .query(`
             SELECT * FROM registered_devices_copy 
             WHERE productId IN (SELECT productId FROM products WHERE customerId=@customerId)
@@ -416,7 +439,8 @@ function parseProductData(recordset)
         const roomData = parseRoomData(records[product]);
         productData.push(
         {
-            productID: i,
+            houseID: i,
+            productId: product,
             rooms: roomData
         })
         i += 1;
@@ -465,6 +489,7 @@ function parseRoomData(recordset)
         rooms[device.roomid].push(
         {
             id: device.deviceId,
+            pid: device.productId,
             type: device.device_type,
             name: device.device_name,
             status: device.status === 'Off' ? false : true,
@@ -478,6 +503,7 @@ function parseRoomData(recordset)
         {
             roomID: i,
             name: room,
+            product: rooms[room][0].pid,
             devices: rooms[room],
         };
         i += 1
@@ -502,7 +528,7 @@ app.get("/api/v3/register/productaddress/:customerId", (req, res) =>
 {
     var request = new sql.Request(sqlConnPool);
     request
-        .input("customerId", sql.VarChar, req.body.customerId)
+        .input("customerId", sql.VarChar, req.params.customerId)
         .query("SELECT productId, customer_address FROM products WHERE customerId=@customerId", function(err, result)
         {
             if (err) 
@@ -589,12 +615,12 @@ app.post("/api/v1/unregister/device/", (req, res) =>
 {
     var request = new sql.Request(sqlConnPool);
     request
-        .input("username", sql.VarChar, req.body.username)
+        .input("customerId", sql.VarChar, req.body.customerId)
         .input("deviceId", sql.VarChar, req.body.deviceId)
         .query(`
-            IF EXISTS(SELECT * FROM registered_devices WHERE deviceId=@deviceId AND username=@username)
+            IF EXISTS(SELECT * FROM registered_devices_copy WHERE deviceId=@deviceId AND productId IN (SELECT productId from products WHERE customerId=@customerId))
             BEGIN
-                DELETE FROM registered_devices WHERE deviceId=@deviceId
+                DELETE FROM registered_devices_copy WHERE deviceId=@deviceId
             END`, 
             function(err, result) 
             {
@@ -604,7 +630,7 @@ app.post("/api/v1/unregister/device/", (req, res) =>
                     res.status(500).send(err);
                     return;
                 }
-                console.log(`Unregister: ${req.body.username} ${req.body.deviceId}` + result)
+                console.log(`Unregister: ${req.body.customerId} ${req.body.deviceId} ` + result.rowsAffected)
                 res.status(200).send({ message: "Success" });
             });
 });
