@@ -387,6 +387,39 @@ app.get("/api/v2/devices/data/month/:customerId", (req, res) =>
         });
 });
 
+// =====================================   GET TOTAL COST FOR GIVEN MONTH   ====================================== //
+
+/** 
+ * // TODO Copy to new version to accept username
+ * GET /:month
+ * Gets cumulative usage data for all devices for the given month ordered by grouped by deviceId
+ */
+app.get("/api/v2/devices/costtotal/month/:customerId", (req, res) => 
+{
+    const month = new Date().getMonth() + 1;
+    var request = new sql.Request(sqlConnPool);
+    request
+        .input("month", sql.VarChar, month)
+        .input("customerId", sql.VarChar, req.params.customerId)
+        .query(`
+            SELECT sum(cast(usage as float)) usage 
+            FROM sensor_data WHERE month = @month 
+            AND deviceId IN (SELECT deviceId FROM registered_devices_copy
+            WHERE productId IN (SELECT productId FROM products WHERE customerId = @customerId))
+            GROUP BY month
+        `, 
+        function(err, result) 
+        {
+            if (err) 
+            {
+                console.error(err);
+                res.status(500).send(err.message);
+                return;
+            }
+            res.status(200).send(result.recordset);
+        });
+});
+
 //#endregion
 
 //#region  ======================================  DEVICES : GET DEVICE INFO   ================================ //
