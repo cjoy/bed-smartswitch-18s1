@@ -15,11 +15,9 @@ var usageRating = process.argv[3];
  * Retrieving the iot hub connection string defined in the iot jsonConfig
  * file in the CreateDeviceIdentity folder.
  */
-const hubConfig = require(`${__dirname}\\IoTHubConfig`);
-const hostname = hubConfig.hostname;
-const sharedkey = hubConfig.sharedkey;
-const sharedkeyname = hubConfig.sharedkeyname;
-const connectionString = `HostName=${hostname};SharedAccessKeyName=${sharedkeyname};SharedAccessKey=${sharedkey}`;
+const hubConfig = require(`../RestAPI/AzureConfig`);
+const hostname = hubConfig.IoTHubConfig.hostname;
+const connectionString = hubConfig.IoTHubConnectionString;
 
 /*
  * Importing the iothub and registry modules for connecting to the azure
